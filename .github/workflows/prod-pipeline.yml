@@ -1,0 +1,41 @@
+name: Prod Deploy Workflow
+
+on: workflow_dispatch
+
+env:
+    AWS_REGION: us-east-1                   # set this to your preferred AWS region, e.g. us-west-1
+    ECR_REPOSITORY: coupon                  # set this to your Amazon ECR repository name
+    SERVICE_NAME: coupon                    # set this to the name of the container in the
+
+jobs:
+  deploy-stage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.4.5 
+          
+      # Specify the desired Terraform version
+      - name: Terraform Init
+        working-directory: ./platformInfra
+        run: terraform init -backend-config="./env/platform-prod.config"
+        
+      - name: Terraform Plan
+        working-directory: ./platformInfra
+        run: terraform plan -var-file="./env/production.tfvars" -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: ./platformInfra
+        run: terraform apply -auto-approve tfplan --var-file="./env/production.tfvars"
